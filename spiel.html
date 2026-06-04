@@ -1,0 +1,1155 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Der Schwarze Wald</title>
+<style>
+  /* === GRUNDLEGENDE STILE === */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    overflow: hidden;
+    font-family: 'Georgia', serif;
+  }
+  canvas { display: block; cursor: none; }
+
+  /* === OVERLAY-BILDSCHIRME (Menü, Spielende, Sieg) === */
+  #bildschirm {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    pointer-events: none;
+    z-index: 10;
+  }
+
+  /* Menü-Bildschirm */
+  #menue {
+    background: rgba(0,0,0,0.92);
+    pointer-events: all;
+  }
+  #menue h1 {
+    font-size: 3.5em;
+    color: #8b0000;
+    text-shadow: 0 0 30px #ff0000, 0 0 60px #660000;
+    letter-spacing: 0.15em;
+    margin-bottom: 0.3em;
+    animation: pulsiertitel 3s ease-in-out infinite;
+  }
+  @keyframes pulsiertitel {
+    0%, 100% { text-shadow: 0 0 20px #8b0000, 0 0 40px #330000; }
+    50% { text-shadow: 0 0 40px #ff0000, 0 0 80px #660000; }
+  }
+  #menue .untertitel {
+    color: #555;
+    font-style: italic;
+    font-size: 1.1em;
+    margin-bottom: 2em;
+    text-align: center;
+    max-width: 400px;
+    line-height: 1.6;
+  }
+  #menue .steuerung {
+    color: #444;
+    font-size: 0.85em;
+    margin-bottom: 2.5em;
+    text-align: center;
+    line-height: 2;
+  }
+  #menue .steuerung span { color: #666; }
+  #startknopf {
+    background: #1a0000;
+    color: #cc3333;
+    border: 1px solid #8b0000;
+    padding: 14px 40px;
+    font-size: 1.2em;
+    font-family: 'Georgia', serif;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+    transition: all 0.3s;
+    text-transform: uppercase;
+  }
+  #startknopf:hover {
+    background: #2d0000;
+    color: #ff4444;
+    border-color: #cc0000;
+    box-shadow: 0 0 20px #660000;
+  }
+
+  /* Spielende-Bildschirm */
+  #spielende {
+    background: rgba(20,0,0,0.95);
+    display: none;
+    pointer-events: all;
+  }
+  #spielende h1 {
+    font-size: 4em;
+    color: #cc0000;
+    text-shadow: 0 0 20px #ff0000;
+    letter-spacing: 0.3em;
+    animation: zucken 0.1s ease-in-out infinite;
+  }
+  @keyframes zucken {
+    0%, 100% { transform: translate(0,0); }
+    25% { transform: translate(-1px, 1px); }
+    75% { transform: translate(1px, -1px); }
+  }
+  #spielende p {
+    color: #662222;
+    margin-top: 1em;
+    font-size: 1.1em;
+    font-style: italic;
+  }
+  #spielende button {
+    margin-top: 2em;
+    background: #1a0000;
+    color: #cc3333;
+    border: 1px solid #8b0000;
+    padding: 12px 30px;
+    font-size: 1em;
+    font-family: 'Georgia', serif;
+    cursor: pointer;
+    letter-spacing: 0.1em;
+  }
+  #spielende button:hover { background: #2d0000; box-shadow: 0 0 15px #660000; }
+
+  /* Sieg-Bildschirm */
+  #sieg {
+    background: rgba(5,3,0,0.95);
+    display: none;
+    pointer-events: all;
+  }
+  #sieg h1 {
+    font-size: 3em;
+    color: #c8882a;
+    text-shadow: 0 0 20px #ffaa44;
+    letter-spacing: 0.1em;
+  }
+  #sieg p {
+    color: #7a5520;
+    margin-top: 1em;
+    font-size: 1.1em;
+    font-style: italic;
+  }
+  #sieg button {
+    margin-top: 2em;
+    background: #1a0d00;
+    color: #c8882a;
+    border: 1px solid #7a5520;
+    padding: 12px 30px;
+    font-size: 1em;
+    font-family: 'Georgia', serif;
+    cursor: pointer;
+    letter-spacing: 0.1em;
+  }
+  #sieg button:hover { background: #2d1800; box-shadow: 0 0 15px #7a3310; }
+</style>
+</head>
+<body>
+
+<!-- === SPIELFLÄCHE === -->
+<canvas id="spielflaeche"></canvas>
+
+<!-- === OVERLAY-BILDSCHIRME === -->
+<div id="bildschirm">
+  <!-- Hauptmenü -->
+  <div id="menue">
+    <h1>Der Schwarze Wald</h1>
+    <div class="untertitel">
+      „Im tiefen Wald, wo kein Licht mehr fällt,<br>
+      wartet etwas Altes auf dich."
+    </div>
+    <div class="steuerung">
+      <span>W / S</span> — Vorwärts / Rückwärts<br>
+      <span>A / D</span> — Drehen<br>
+      <span>Pfeiltasten</span> — Seitlich bewegen
+    </div>
+    <button id="startknopf">Ins Dunkel gehen</button>
+  </div>
+
+  <!-- Spielende -->
+  <div id="spielende">
+    <h1>DU BIST TOT.</h1>
+    <p>Die Dunkelheit hat dich verschluckt.</p>
+    <button onclick="zurueckZumMenue()">Neu beginnen</button>
+  </div>
+
+  <!-- Sieg -->
+  <div id="sieg">
+    <h1>Du hast überlebt!</h1>
+    <p>Die Hütte bietet Schutz vor der Dunkelheit.</p>
+    <button onclick="zurueckZumMenue()">Nochmal spielen</button>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// === ABSCHNITT 1: CANVAS-EINRICHTUNG ===
+// ============================================================
+
+const leinwand = document.getElementById('spielflaeche');
+const ctx = leinwand.getContext('2d');
+
+// Spielflächen-Größe festlegen
+const BREITE = 800;
+const HOEHE = 600;
+leinwand.width = BREITE;
+leinwand.height = HOEHE;
+
+// Tiefenpuffer für korrekte Sprite-Verdeckung (ein Wert pro senkrechter Streifen)
+let tiefenpuffer = new Array(BREITE).fill(0);
+
+// ============================================================
+// === ABSCHNITT 2: KARTE (24x24 RASTER) ===
+// ============================================================
+// 0 = freier Pfad, 1 = Baum/Wand, 2 = Holzhütte (Ziel)
+
+const karte = [
+  [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+  [1,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,1],
+  [1,0,1,0,0,0,1,1,0,1,1,0,1,1,0,1,0,0,1,1,0,1,0,1],
+  [1,0,1,1,1,0,0,1,0,0,0,0,0,1,0,0,0,1,1,0,0,1,0,1],
+  [1,0,0,0,1,1,0,0,0,1,1,1,0,0,0,1,1,0,0,0,1,0,0,1],
+  [1,1,1,0,0,0,0,1,1,1,0,0,0,1,1,1,0,0,1,0,0,0,1,1],
+  [1,0,0,0,1,0,0,0,0,0,0,1,0,0,0,0,0,1,1,1,0,0,0,1],
+  [1,0,1,1,1,1,1,0,1,1,0,1,1,1,0,1,0,0,0,0,0,1,0,1],
+  [1,0,0,0,0,0,1,0,0,1,0,0,0,1,0,0,0,1,1,0,1,1,0,1],
+  [1,1,1,1,0,1,1,1,0,0,0,1,0,1,1,1,0,0,1,0,0,0,0,1],
+  [1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,0,1,0,0,1,1,0,1],
+  [1,0,1,1,0,1,1,1,0,1,1,1,1,0,1,0,0,0,0,1,0,0,0,1],
+  [1,0,1,0,0,0,0,1,0,0,0,0,1,0,0,0,1,1,0,0,0,1,0,1],
+  [1,0,0,0,1,1,0,0,0,1,1,0,0,0,1,1,0,0,0,1,0,1,0,1],
+  [1,1,1,0,1,0,0,1,0,0,1,0,1,0,0,1,0,1,0,0,0,0,0,1],
+  [1,0,0,0,0,0,1,1,0,0,0,0,1,1,0,0,0,1,1,1,1,0,1,1],
+  [1,0,1,1,1,0,0,0,0,1,1,0,0,0,0,1,0,0,0,0,1,0,0,1],
+  [1,0,0,0,1,1,1,0,1,1,0,0,1,1,0,1,1,0,1,0,0,0,1,1],
+  [1,1,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,1,1,0,1,0,1],
+  [1,0,0,1,1,1,0,1,1,1,0,0,0,0,1,1,0,0,0,1,0,0,0,1],
+  [1,0,1,1,0,0,0,0,0,1,0,1,0,1,1,0,0,1,0,0,0,1,0,1],
+  [1,0,0,0,0,1,1,0,1,0,0,1,0,0,0,0,1,1,0,1,0,0,0,1],
+  [1,1,0,1,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,2,1],
+  [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+];
+
+// Kartengröße
+const KARTEN_BREITE = 24;
+const KARTEN_HOEHE = 24;
+
+// ============================================================
+// === ABSCHNITT 3: SPIELER-OBJEKT ===
+// ============================================================
+
+const spieler = {
+  x: 1.5,          // Startposition X
+  y: 1.5,          // Startposition Y
+  richtungX: 1.0,  // Blickrichtungsvektor X (zeigt nach Osten)
+  richtungY: 0.0,  // Blickrichtungsvektor Y
+  ebeneX: 0.0,     // Kameraebene X (senkrecht zur Blickrichtung)
+  ebeneY: 0.66,    // Kameraebene Y (bestimmt Sichtfeld ~66°)
+  bewegungsGeschwindigkeit: 2.5,  // Einheiten pro Sekunde
+  drehGeschwindigkeit: 2.0,       // Radianten pro Sekunde
+};
+
+// ============================================================
+// === ABSCHNITT 4: MONSTER-OBJEKT ===
+// ============================================================
+
+const monster = {
+  x: 22.5,              // Startposition — gegenüber dem Spieler
+  y: 1.5,
+  aktiv: false,         // Schläft zuerst
+  aktivierungsZeit: 8,  // Sekunden bis zur Aktivierung
+  vergangeneZeit: 0,    // Zähler für Aktivierung
+  geschwindigkeit: 0.6, // Einheiten pro Sekunde (bewegt sich durch Wände)
+  wandGeschwindigkeit: 0.3, // Langsamer durch Wände
+  abstand: 999,         // Abstand zum Spieler (wird jede Runde berechnet)
+  erwachtGezeigt: false, // Nur einmal "Etwas erwacht..." zeigen
+  erwachtNachricht: false,
+  erwachtNachrichtTimer: 0,
+};
+
+// ============================================================
+// === ABSCHNITT 5: AUDIOSYSTEM (Web Audio API) ===
+// ============================================================
+
+let audioContext = null;
+let windKnoten = null;
+let herzschlagInterval = null;
+let herzschlagGeschwindigkeit = 1.5; // Sekunden zwischen Schlägen
+let letzterHerzschlag = 0;
+let knackenTimer = 0;
+let knackenIntervall = 4.0; // Sekunden zwischen Knackgeräuschen
+let knurrenTimer = 0;
+let knurrenIntervall = 6.0;
+
+// Audio initialisieren (erst nach Nutzerinteraktion erlaubt)
+function audioInitialisieren() {
+  if (audioContext) return;
+  audioContext = new (window.AudioContext || window.webkitAudioContext)();
+  windErzeugen();
+}
+
+// Weißes Rauschen durch Tiefpassfilter = Windgeräusch
+function windErzeugen() {
+  if (!audioContext) return;
+
+  // Puffer mit weißem Rauschen füllen
+  const pufferGroesse = audioContext.sampleRate * 4;
+  const puffer = audioContext.createBuffer(1, pufferGroesse, audioContext.sampleRate);
+  const daten = puffer.getChannelData(0);
+  for (let i = 0; i < pufferGroesse; i++) {
+    daten[i] = (Math.random() * 2 - 1) * 0.3;
+  }
+
+  // Rauschknoten (schleifend)
+  const rauschQuelle = audioContext.createBufferSource();
+  rauschQuelle.buffer = puffer;
+  rauschQuelle.loop = true;
+
+  // Tiefpassfilter für windähnlichen Klang
+  const tiefpass = audioContext.createBiquadFilter();
+  tiefpass.type = 'lowpass';
+  tiefpass.frequency.value = 400;
+
+  // Lautstärke-Knoten
+  const lautstaerke = audioContext.createGain();
+  lautstaerke.gain.value = 0.15;
+
+  rauschQuelle.connect(tiefpass);
+  tiefpass.connect(lautstaerke);
+  lautstaerke.connect(audioContext.destination);
+  rauschQuelle.start();
+  windKnoten = lautstaerke;
+}
+
+// Herzschlag erzeugen
+function herzschlagSpielen() {
+  if (!audioContext) return;
+
+  // Zwei tiefe Schläge kurz hintereinander (Lub-Dub)
+  for (let schlag = 0; schlag < 2; schlag++) {
+    const verzoegerung = schlag * 0.18;
+    const oszillator = audioContext.createOscillator();
+    const lautstaerke = audioContext.createGain();
+
+    oszillator.type = 'sine';
+    oszillator.frequency.setValueAtTime(60, audioContext.currentTime + verzoegerung);
+    oszillator.frequency.exponentialRampToValueAtTime(30, audioContext.currentTime + verzoegerung + 0.15);
+
+    lautstaerke.gain.setValueAtTime(0, audioContext.currentTime + verzoegerung);
+    lautstaerke.gain.linearRampToValueAtTime(0.4, audioContext.currentTime + verzoegerung + 0.02);
+    lautstaerke.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + verzoegerung + 0.15);
+
+    oszillator.connect(lautstaerke);
+    lautstaerke.connect(audioContext.destination);
+    oszillator.start(audioContext.currentTime + verzoegerung);
+    oszillator.stop(audioContext.currentTime + verzoegerung + 0.2);
+  }
+}
+
+// Ast-Knacken erzeugen
+function knackenSpielen() {
+  if (!audioContext) return;
+
+  const pufferGroesse = audioContext.sampleRate * 0.3;
+  const puffer = audioContext.createBuffer(1, pufferGroesse, audioContext.sampleRate);
+  const daten = puffer.getChannelData(0);
+
+  for (let i = 0; i < pufferGroesse; i++) {
+    daten[i] = (Math.random() * 2 - 1) * Math.exp(-i / (pufferGroesse * 0.1));
+  }
+
+  const quelle = audioContext.createBufferSource();
+  quelle.buffer = puffer;
+
+  const hochpass = audioContext.createBiquadFilter();
+  hochpass.type = 'highpass';
+  hochpass.frequency.value = 1000;
+
+  const lautstaerke = audioContext.createGain();
+  lautstaerke.gain.value = 0.3;
+
+  quelle.connect(hochpass);
+  hochpass.connect(lautstaerke);
+  lautstaerke.connect(audioContext.destination);
+  quelle.start();
+}
+
+// Monster-Knurren (tiefes, verzerrtes Geräusch)
+function knurrenSpielen() {
+  if (!audioContext) return;
+
+  const oszillator = audioContext.createOscillator();
+  const verzerrer = audioContext.createWaveShaper();
+  const lautstaerke = audioContext.createGain();
+
+  // Verzerrungskurve
+  const kurve = new Float32Array(256);
+  for (let i = 0; i < 256; i++) {
+    const x = (i * 2) / 256 - 1;
+    kurve[i] = (Math.PI + 200) * x / (Math.PI + 200 * Math.abs(x));
+  }
+  verzerrer.curve = kurve;
+
+  oszillator.type = 'sawtooth';
+  oszillator.frequency.setValueAtTime(55, audioContext.currentTime);
+  oszillator.frequency.linearRampToValueAtTime(35, audioContext.currentTime + 1.5);
+
+  lautstaerke.gain.setValueAtTime(0, audioContext.currentTime);
+  lautstaerke.gain.linearRampToValueAtTime(0.25, audioContext.currentTime + 0.3);
+  lautstaerke.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 1.5);
+
+  oszillator.connect(verzerrer);
+  verzerrer.connect(lautstaerke);
+  lautstaerke.connect(audioContext.destination);
+  oszillator.start();
+  oszillator.stop(audioContext.currentTime + 1.6);
+}
+
+// ============================================================
+// === ABSCHNITT 6: EINGABE-BEHANDLUNG ===
+// ============================================================
+
+const tasten = {};  // Welche Tasten gerade gedrückt sind
+
+document.addEventListener('keydown', (e) => {
+  tasten[e.code] = true;
+  e.preventDefault();
+});
+
+document.addEventListener('keyup', (e) => {
+  tasten[e.code] = false;
+});
+
+// ============================================================
+// === ABSCHNITT 7: SPIELER-BEWEGUNG UND KOLLISION ===
+// ============================================================
+
+function kachelIstFrei(x, y) {
+  // Prüft ob eine Karte-Position begehbar ist (kein Baum, keine Hütte-Kollision)
+  const kartenX = Math.floor(x);
+  const kartenY = Math.floor(y);
+  if (kartenX < 0 || kartenX >= KARTEN_BREITE || kartenY < 0 || kartenY >= KARTEN_HOEHE) return false;
+  return karte[kartenY][kartenX] === 0 || karte[kartenY][kartenX] === 2;
+}
+
+function spielerBewegen(deltaZeit) {
+  // Vorwärts-/Rückwärtsbewegung
+  const geschwindigkeit = spieler.bewegungsGeschwindigkeit * deltaZeit;
+  let neuesX = spieler.x;
+  let neuesY = spieler.y;
+
+  if (tasten['KeyW'] || tasten['ArrowUp']) {
+    neuesX += spieler.richtungX * geschwindigkeit;
+    neuesY += spieler.richtungY * geschwindigkeit;
+  }
+  if (tasten['KeyS'] || tasten['ArrowDown']) {
+    neuesX -= spieler.richtungX * geschwindigkeit;
+    neuesY -= spieler.richtungY * geschwindigkeit;
+  }
+
+  // Seitliche Bewegung (Strafen)
+  if (tasten['ArrowLeft']) {
+    neuesX -= spieler.ebeneX * geschwindigkeit;
+    neuesY -= spieler.ebeneY * geschwindigkeit;
+  }
+  if (tasten['ArrowRight']) {
+    neuesX += spieler.ebeneX * geschwindigkeit;
+    neuesY += spieler.ebeneY * geschwindigkeit;
+  }
+
+  // Kollisionsabfrage mit kleinem Abstand zur Wand (0.2 Einheiten)
+  const rand = 0.2;
+  if (kachelIstFrei(neuesX + rand * Math.sign(neuesX - spieler.x + 0.001), spieler.y)) spieler.x = neuesX;
+  if (kachelIstFrei(spieler.x, neuesY + rand * Math.sign(neuesY - spieler.y + 0.001))) spieler.y = neuesY;
+
+  // Drehung (A = links drehen, D = rechts drehen)
+  const drehwinkel = spieler.drehGeschwindigkeit * deltaZeit;
+  if (tasten['KeyA']) {
+    // Drehmatrix gegen Uhrzeigersinn anwenden
+    const altRX = spieler.richtungX;
+    const altEX = spieler.ebeneX;
+    spieler.richtungX = spieler.richtungX * Math.cos(drehwinkel) - spieler.richtungY * Math.sin(drehwinkel);
+    spieler.richtungY = altRX * Math.sin(drehwinkel) + spieler.richtungY * Math.cos(drehwinkel);
+    spieler.ebeneX = spieler.ebeneX * Math.cos(drehwinkel) - spieler.ebeneY * Math.sin(drehwinkel);
+    spieler.ebeneY = altEX * Math.sin(drehwinkel) + spieler.ebeneY * Math.cos(drehwinkel);
+  }
+  if (tasten['KeyD']) {
+    // Drehmatrix mit Uhrzeigersinn anwenden
+    const altRX = spieler.richtungX;
+    const altEX = spieler.ebeneX;
+    spieler.richtungX = spieler.richtungX * Math.cos(-drehwinkel) - spieler.richtungY * Math.sin(-drehwinkel);
+    spieler.richtungY = altRX * Math.sin(-drehwinkel) + spieler.richtungY * Math.cos(-drehwinkel);
+    spieler.ebeneX = spieler.ebeneX * Math.cos(-drehwinkel) - spieler.ebeneY * Math.sin(-drehwinkel);
+    spieler.ebeneY = altEX * Math.sin(-drehwinkel) + spieler.ebeneY * Math.cos(-drehwinkel);
+  }
+}
+
+// ============================================================
+// === ABSCHNITT 8: MONSTER-KI ===
+// ============================================================
+
+function monsterAktualisieren(deltaZeit) {
+  // Aktivierungs-Countdown
+  if (!monster.aktiv) {
+    monster.vergangeneZeit += deltaZeit;
+    if (monster.vergangeneZeit >= monster.aktivierungsZeit) {
+      monster.aktiv = true;
+      monster.erwachtNachricht = true;
+      monster.erwachtNachrichtTimer = 3.0; // 3 Sekunden anzeigen
+    }
+    return;
+  }
+
+  // Abstand zum Spieler berechnen
+  const dx = spieler.x - monster.x;
+  const dy = spieler.y - monster.y;
+  monster.abstand = Math.sqrt(dx * dx + dy * dy);
+
+  // Monster bewegt sich direkt auf den Spieler zu (phasiert durch Wände)
+  const winkel = Math.atan2(dy, dx);
+  const monsterKachelX = Math.floor(monster.x);
+  const monsterKachelY = Math.floor(monster.y);
+
+  // Prüfen ob Monster gerade in einer Wand ist (langsamer)
+  let aktuelleGeschwindigkeit = monster.geschwindigkeit;
+  if (monsterKachelX >= 0 && monsterKachelX < KARTEN_BREITE &&
+      monsterKachelY >= 0 && monsterKachelY < KARTEN_HOEHE &&
+      karte[monsterKachelY][monsterKachelX] === 1) {
+    aktuelleGeschwindigkeit = monster.wandGeschwindigkeit;
+  }
+
+  monster.x += Math.cos(winkel) * aktuelleGeschwindigkeit * deltaZeit;
+  monster.y += Math.sin(winkel) * aktuelleGeschwindigkeit * deltaZeit;
+
+  // Knurren abspielen wenn Monster sehr nah ist
+  knurrenTimer -= deltaZeit;
+  if (monster.abstand < 5 && knurrenTimer <= 0) {
+    knurrenSpielen();
+    knurrenTimer = knurrenIntervall * (monster.abstand / 5);
+  }
+
+  // Nachricht-Timer
+  if (monster.erwachtNachrichtTimer > 0) {
+    monster.erwachtNachrichtTimer -= deltaZeit;
+    if (monster.erwachtNachrichtTimer <= 0) {
+      monster.erwachtNachricht = false;
+    }
+  }
+}
+
+// ============================================================
+// === ABSCHNITT 9: SIEG/NIEDERLAGE-ERKENNUNG ===
+// ============================================================
+
+// Hüttenposition (Mitte der Ziel-Kachel)
+const huetteX = 22.5;
+const huetteY = 22.5;
+
+function sieNiederlageUeberpruefen() {
+  // Spielende: Monster zu nah
+  const monsterAbstand = Math.sqrt(
+    Math.pow(spieler.x - monster.x, 2) +
+    Math.pow(spieler.y - monster.y, 2)
+  );
+  if (monsterAbstand < 0.6 && monster.aktiv) {
+    spielZustandSetzen('SPIELENDE');
+    return;
+  }
+
+  // Sieg: Spieler nahe der Hütte
+  const huetteAbstand = Math.sqrt(
+    Math.pow(spieler.x - huetteX, 2) +
+    Math.pow(spieler.y - huetteY, 2)
+  );
+  if (huetteAbstand < 1.5) {
+    spielZustandSetzen('SIEG');
+  }
+}
+
+// ============================================================
+// === ABSCHNITT 10: RAYCASTING-RENDERER ===
+// ============================================================
+// DDA-Algorithmus (Digital Differential Analysis) für schnelles Raytracing
+
+function szeneZeichnen() {
+  // --- Himmel (dunkle Nacht, fast schwarz mit blaugrauem Schimmer) ---
+  const himmelGradient = ctx.createLinearGradient(0, 0, 0, HOEHE / 2);
+  himmelGradient.addColorStop(0, '#050508');
+  himmelGradient.addColorStop(1, '#0a0d12');
+  ctx.fillStyle = himmelGradient;
+  ctx.fillRect(0, 0, BREITE, HOEHE / 2);
+
+  // --- Boden (sehr dunkle Erde) ---
+  const bodenGradient = ctx.createLinearGradient(0, HOEHE / 2, 0, HOEHE);
+  bodenGradient.addColorStop(0, '#0a0805');
+  bodenGradient.addColorStop(1, '#050403');
+  ctx.fillStyle = bodenGradient;
+  ctx.fillRect(0, HOEHE / 2, BREITE, HOEHE / 2);
+
+  // --- Tiefenpuffer zurücksetzen ---
+  for (let i = 0; i < BREITE; i++) tiefenpuffer[i] = 0;
+
+  // --- Für jede senkrechte Bildschirmspalte einen Strahl schießen ---
+  for (let spalte = 0; spalte < BREITE; spalte++) {
+
+    // Kameraposition: -1 (links) bis +1 (rechts) auf der Kameraebene
+    const kameraX = 2 * spalte / BREITE - 1;
+
+    // Strahlrichtung berechnen (Blickrichtung + Kameraebene * Kameraposition)
+    const strahlRichtungX = spieler.richtungX + spieler.ebeneX * kameraX;
+    const strahlRichtungY = spieler.richtungY + spieler.ebeneY * kameraX;
+
+    // Aktuelle Kachelposition des Spielers
+    let kartenX = Math.floor(spieler.x);
+    let kartenY = Math.floor(spieler.y);
+
+    // DDA: Schrittweite für Kachelübergänge berechnen
+    // deltaDist = wie weit muss der Strahl gehen, um eine Kachel-Grenze zu überschreiten
+    const deltaDistX = Math.abs(strahlRichtungX) < 1e-20 ? 1e20 : Math.abs(1 / strahlRichtungX);
+    const deltaDistY = Math.abs(strahlRichtungY) < 1e-20 ? 1e20 : Math.abs(1 / strahlRichtungY);
+
+    // Schrittrichtung und Anfangs-Seitendistanz festlegen
+    let schrittX, schrittY;
+    let seitenDistX, seitenDistY;
+
+    if (strahlRichtungX < 0) {
+      schrittX = -1;
+      seitenDistX = (spieler.x - kartenX) * deltaDistX;
+    } else {
+      schrittX = 1;
+      seitenDistX = (kartenX + 1.0 - spieler.x) * deltaDistX;
+    }
+    if (strahlRichtungY < 0) {
+      schrittY = -1;
+      seitenDistY = (spieler.y - kartenY) * deltaDistY;
+    } else {
+      schrittY = 1;
+      seitenDistY = (kartenY + 1.0 - spieler.y) * deltaDistY;
+    }
+
+    // DDA-Schleife: Kachelgrenzen überschreiten bis Wand getroffen
+    let wandGetroffen = false;
+    let seite = 0; // 0 = X-Wand, 1 = Y-Wand
+    let wandTyp = 0;
+
+    while (!wandGetroffen) {
+      // Nächste Kachelgrenze überschreiten (X oder Y, je nachdem was näher ist)
+      if (seitenDistX < seitenDistY) {
+        seitenDistX += deltaDistX;
+        kartenX += schrittX;
+        seite = 0;
+      } else {
+        seitenDistY += deltaDistY;
+        kartenY += schrittY;
+        seite = 1;
+      }
+
+      // Wandtyp prüfen
+      if (kartenX >= 0 && kartenX < KARTEN_BREITE && kartenY >= 0 && kartenY < KARTEN_HOEHE) {
+        wandTyp = karte[kartenY][kartenX];
+        if (wandTyp > 0) wandGetroffen = true;
+      } else {
+        // Außerhalb der Karte = unsichtbare Grenzwand
+        wandGetroffen = true;
+        wandTyp = 1;
+      }
+    }
+
+    // Euklidischen Abstand zur Wand berechnen (ohne Fischaugen-Verzerrung)
+    let wandAbstand;
+    if (seite === 0) {
+      wandAbstand = seitenDistX - deltaDistX;
+    } else {
+      wandAbstand = seitenDistY - deltaDistY;
+    }
+
+    // Tiefenpuffer für Sprite-Renderer füllen
+    tiefenpuffer[spalte] = wandAbstand;
+
+    // Wandhöhe berechnen (näher = höher)
+    const wandHoehe = Math.floor(HOEHE / wandAbstand);
+    const zeichenStart = Math.max(0, Math.floor(HOEHE / 2 - wandHoehe / 2));
+    const zeichenEnde = Math.min(HOEHE - 1, Math.floor(HOEHE / 2 + wandHoehe / 2));
+
+    // Wandfarbe nach Typ bestimmen
+    let r, g, b;
+
+    if (wandTyp === 1) {
+      // Baum/Wald-Wand: sehr dunkel, bräunlich-grün
+      r = 15; g = 25; b = 10;
+      // Y-Seiten etwas heller für 3D-Effekt
+      if (seite === 1) { r = 20; g = 35; b = 15; }
+    } else if (wandTyp === 2) {
+      // Hütte: warmes Braun/Orange (beleuchtet von innen)
+      r = 120; g = 65; b = 20;
+      if (seite === 1) { r = 90; g = 50; b = 15; }
+    }
+
+    // Entfernungsnebel anwenden (je weiter, desto dunkler = Nacht)
+    const nebelFaktor = Math.max(0, 1 - wandAbstand / 12);
+    r = Math.floor(r * nebelFaktor);
+    g = Math.floor(g * nebelFaktor);
+    b = Math.floor(b * nebelFaktor);
+
+    // Wandstreifen zeichnen
+    ctx.fillStyle = `rgb(${r},${g},${b})`;
+    ctx.fillRect(spalte, zeichenStart, 1, zeichenEnde - zeichenStart);
+  }
+}
+
+// ============================================================
+// === ABSCHNITT 11: SPRITE-RENDERER FÜR DAS MONSTER ===
+// ============================================================
+
+function monsterZeichnen() {
+  if (!monster.aktiv) return;
+
+  // Relative Position des Monsters zum Spieler
+  const spriteX = monster.x - spieler.x;
+  const spriteY = monster.y - spieler.y;
+
+  // Inverse Transformationsmatrix der Kamera anwenden
+  // Damit wird der Sprite korrekt in Kamerakoordinaten umgerechnet
+  const invertDet = 1.0 / (spieler.ebeneX * spieler.richtungY - spieler.richtungX * spieler.ebeneY);
+  const transformX = invertDet * (spieler.richtungY * spriteX - spieler.richtungX * spriteY);
+  const transformY = invertDet * (-spieler.ebeneY * spriteX + spieler.ebeneX * spriteY);
+
+  // Sprite ist hinter der Kamera → nicht zeichnen
+  if (transformY <= 0) return;
+
+  // Sprite-Bildschirmposition (horizontale Mitte)
+  const spriteScreenX = Math.floor((BREITE / 2) * (1 + transformX / transformY));
+
+  // Sprite-Größe berechnen (entfernungsabhängig)
+  const spriteHoehe = Math.abs(Math.floor(HOEHE / transformY));
+  const zeichenStartY = Math.max(0, Math.floor(HOEHE / 2 - spriteHoehe / 2));
+  const zeichenEndeY = Math.min(HOEHE - 1, Math.floor(HOEHE / 2 + spriteHoehe / 2));
+
+  const spriteBreite = Math.abs(Math.floor(HOEHE / transformY));
+  const zeichenStartX = Math.max(0, Math.floor(spriteScreenX - spriteBreite / 2));
+  const zeichenEndeX = Math.min(BREITE - 1, Math.floor(spriteScreenX + spriteBreite / 2));
+
+  // Entfernungsnebel für Monster
+  const nebelFaktor = Math.max(0, Math.min(1, 1 - transformY / 10));
+
+  // Pixel für Pixel den Monster-Sprite zeichnen
+  for (let stripe = zeichenStartX; stripe < zeichenEndeX; stripe++) {
+    // Sprite-Koordinate X (0 bis 1)
+    const texX = (stripe - (spriteScreenX - spriteBreite / 2)) / spriteBreite;
+
+    // Tiefenpuffer-Prüfung: Nur zeichnen wenn vor der Wand
+    if (transformY >= tiefenpuffer[stripe]) continue;
+
+    for (let y = zeichenStartY; y < zeichenEndeY; y++) {
+      // Sprite-Koordinate Y (0 bis 1)
+      const texY = (y - zeichenStartY) / (zeichenEndeY - zeichenStartY);
+
+      // Monster-Form aus Pixel-Koordinaten aufbauen
+      // Körper: dunkle Schattenform
+      const koerperBreite = 0.5;
+      const koerperStartX = (1 - koerperBreite) / 2;
+
+      // Kopf-Bereich (oberes Drittel)
+      const istKopf = texY < 0.3;
+      // Körper-Bereich (mittleres Drittel)
+      const istKoerper = texY >= 0.3 && texY < 0.8;
+      // Beine (unteres Fünftel)
+      const istBein = texY >= 0.8;
+
+      let r = 0, g = 0, b = 0, alpha = 0;
+
+      if (istKopf) {
+        // Ovaler Kopf
+        const kopfX = (texX - 0.5) / 0.25;
+        const kopfY = (texY - 0.15) / 0.15;
+        const imKopf = kopfX * kopfX + kopfY * kopfY < 1;
+
+        if (imKopf) {
+          // Kopf: fast schwarz mit leichtem Rauschen
+          r = Math.floor(5 + Math.random() * 8);
+          g = Math.floor(3 + Math.random() * 5);
+          b = Math.floor(3 + Math.random() * 5);
+          alpha = nebelFaktor;
+
+          // Augen: glühend rot
+          const linksAugeX = Math.abs(texX - 0.38) < 0.035;
+          const rechtsAugeX = Math.abs(texX - 0.62) < 0.035;
+          const augeY = Math.abs(texY - 0.12) < 0.04;
+
+          if ((linksAugeX || rechtsAugeX) && augeY) {
+            r = 255; g = 0; b = 0;
+            alpha = nebelFaktor;
+          }
+        }
+      } else if (istKoerper) {
+        // Körper: breite, dunkle Form
+        const koerperFaktor = 0.3 + (texY - 0.3) * 0.2; // Wird breiter nach unten
+        const imKoerper = texX > (0.5 - koerperFaktor) && texX < (0.5 + koerperFaktor);
+
+        if (imKoerper) {
+          r = Math.floor(4 + Math.random() * 6);
+          g = Math.floor(2 + Math.random() * 4);
+          b = Math.floor(2 + Math.random() * 4);
+          alpha = nebelFaktor * 0.9;
+        }
+      } else if (istBein) {
+        // Zwei dünne Beine
+        const linksBein = Math.abs(texX - 0.38) < 0.07;
+        const rechtsBein = Math.abs(texX - 0.62) < 0.07;
+
+        if (linksBein || rechtsBein) {
+          r = Math.floor(3 + Math.random() * 5);
+          g = Math.floor(2 + Math.random() * 3);
+          b = Math.floor(2 + Math.random() * 3);
+          alpha = nebelFaktor * 0.85;
+        }
+      }
+
+      if (alpha > 0) {
+        ctx.fillStyle = `rgba(${r},${g},${b},${alpha})`;
+        ctx.fillRect(stripe, y, 1, 1);
+      }
+    }
+  }
+
+  // Leuchtende Augen mit Canvas-Glüheffekt (zusätzliche Ebene)
+  if (transformY < 15) {
+    const augeGluehenRadius = Math.max(1, 8 / transformY);
+    const augenY = zeichenStartY + (zeichenEndeY - zeichenStartY) * 0.12;
+
+    const augeLinks = spriteScreenX - spriteBreite * 0.12;
+    const augeRechts = spriteScreenX + spriteBreite * 0.12;
+
+    const intensitaet = nebelFaktor * Math.min(1, 3 / transformY);
+
+    [augeLinks, augeRechts].forEach(augeX => {
+      const gluehenGradient = ctx.createRadialGradient(augeX, augenY, 0, augeX, augenY, augeGluehenRadius * 3);
+      gluehenGradient.addColorStop(0, `rgba(255, 0, 0, ${intensitaet})`);
+      gluehenGradient.addColorStop(0.4, `rgba(180, 0, 0, ${intensitaet * 0.5})`);
+      gluehenGradient.addColorStop(1, 'rgba(100, 0, 0, 0)');
+      ctx.fillStyle = gluehenGradient;
+      ctx.beginPath();
+      ctx.arc(augeX, augenY, augeGluehenRadius * 3, 0, Math.PI * 2);
+      ctx.fill();
+    });
+  }
+}
+
+// ============================================================
+// === ABSCHNITT 12: TASCHENLAMPEN-OVERLAY ===
+// ============================================================
+
+let flackerWert = 1.0;       // Aktueller Flackerwert
+let flackerTimer = 0;        // Zeit bis zum nächsten Flackern
+let flackerZielWert = 1.0;   // Zielwert für sanftes Flackern
+
+function taschenlampeZeichnen(deltaZeit) {
+  // Flacker-Logik: gelegentliches, sanftes Flackern
+  flackerTimer -= deltaZeit;
+  if (flackerTimer <= 0) {
+    flackerTimer = 0.05 + Math.random() * 0.15;
+    flackerZielWert = 0.85 + Math.random() * 0.15;
+  }
+  // Sanft zum Zielwert interpolieren
+  flackerWert += (flackerZielWert - flackerWert) * 0.3;
+
+  // Radialer Gradient von Mitte (hell) nach außen (schwarz)
+  const mitteX = BREITE / 2;
+  const mitteY = HOEHE / 2;
+  const radius = BREITE * 0.45 * flackerWert;
+
+  const taschenlampenGradient = ctx.createRadialGradient(
+    mitteX, mitteY, 0,
+    mitteX, mitteY, radius
+  );
+
+  // Innerer Bereich: transparent (sichtbar)
+  taschenlampenGradient.addColorStop(0, 'rgba(0,0,0,0)');
+  taschenlampenGradient.addColorStop(0.3, 'rgba(0,0,0,0.1)');
+  taschenlampenGradient.addColorStop(0.6, 'rgba(0,0,0,0.5)');
+  taschenlampenGradient.addColorStop(0.8, 'rgba(0,0,0,0.82)');
+  taschenlampenGradient.addColorStop(1, 'rgba(0,0,0,0.97)');
+
+  ctx.fillStyle = taschenlampenGradient;
+  ctx.fillRect(0, 0, BREITE, HOEHE);
+}
+
+// ============================================================
+// === ABSCHNITT 13: HUD (HEADS-UP DISPLAY) ===
+// ============================================================
+
+let warnungPulsTimer = 0; // Für pulsierende Warnung
+
+function hudZeichnen(deltaZeit) {
+  warnungPulsTimer += deltaZeit * 3;
+
+  // --- Kompass (unten rechts) ---
+  kompassZeichnen();
+
+  // --- "Etwas erwacht im Wald..." Nachricht ---
+  if (monster.erwachtNachricht) {
+    const alpha = Math.min(1, monster.erwachtNachrichtTimer);
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.font = 'italic 20px Georgia';
+    ctx.fillStyle = '#555555';
+    ctx.textAlign = 'center';
+    ctx.fillText('Etwas erwacht im Wald...', BREITE / 2, HOEHE - 80);
+    ctx.restore();
+  }
+
+  // --- Warnung wenn Monster nah ist ---
+  if (monster.aktiv && monster.abstand < 8) {
+    const pulsAlpha = (Math.sin(warnungPulsTimer * 2) + 1) / 2;
+    const warnIntensitaet = Math.max(0, (8 - monster.abstand) / 8);
+
+    ctx.save();
+    ctx.globalAlpha = pulsAlpha * warnIntensitaet;
+    ctx.font = 'bold 28px Georgia';
+    ctx.fillStyle = '#cc0000';
+    ctx.textAlign = 'center';
+    ctx.shadowColor = '#ff0000';
+    ctx.shadowBlur = 15;
+
+    let warnText = '';
+    if (monster.abstand < 3) warnText = 'ES IST NAAAH...';
+    else if (monster.abstand < 5) warnText = 'ES KOMMT...';
+    else warnText = 'ES IST IN DER NÄHE...';
+
+    ctx.fillText(warnText, BREITE / 2, 60);
+    ctx.restore();
+
+    // Roten Rand-Schimmer wenn sehr nah
+    if (monster.abstand < 4) {
+      const randIntensitaet = (4 - monster.abstand) / 4 * pulsAlpha * 0.4;
+      const randGradient = ctx.createRadialGradient(
+        BREITE/2, HOEHE/2, BREITE * 0.3,
+        BREITE/2, HOEHE/2, BREITE * 0.8
+      );
+      randGradient.addColorStop(0, 'rgba(100,0,0,0)');
+      randGradient.addColorStop(1, `rgba(150,0,0,${randIntensitaet})`);
+      ctx.fillStyle = randGradient;
+      ctx.fillRect(0, 0, BREITE, HOEHE);
+    }
+  }
+
+  // --- Herzschlag-Audio aktualisieren ---
+  if (audioContext && monster.aktiv) {
+    const jetzt = audioContext.currentTime;
+    // Herzschlag wird schneller je näher das Monster ist
+    herzschlagGeschwindigkeit = Math.max(0.3, 1.5 - (10 - Math.min(10, monster.abstand)) / 10);
+
+    if (jetzt - letzterHerzschlag > herzschlagGeschwindigkeit) {
+      herzschlagSpielen();
+      letzterHerzschlag = jetzt;
+    }
+  }
+
+  // --- Ast-Knacken-Audio ---
+  knackenTimer -= deltaZeit;
+  if (knackenTimer <= 0) {
+    knackenSpielen();
+    knackenTimer = knackenIntervall * (0.5 + Math.random());
+  }
+}
+
+// Kompass-Zeichnung (zeigt zur Hütte)
+function kompassZeichnen() {
+  const kompassX = BREITE - 70;
+  const kompassY = HOEHE - 70;
+  const radius = 35;
+
+  // Kreis-Hintergrund
+  ctx.save();
+  ctx.globalAlpha = 0.7;
+  ctx.fillStyle = '#0a0805';
+  ctx.strokeStyle = '#332211';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(kompassX, kompassY, radius, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  // Abstand zur Hütte berechnen
+  const hDx = huetteX - spieler.x;
+  const hDy = huetteY - spieler.y;
+  const huetteAbstand = Math.sqrt(hDx * hDx + hDy * hDy);
+
+  // Winkel von Spieler zu Hütte (Weltkoordinaten)
+  const weltWinkel = Math.atan2(hDy, hDx);
+  // Spielerblickrichtung als Winkel
+  const blickWinkel = Math.atan2(spieler.richtungY, spieler.richtungX);
+  // Relativer Winkel für Kompass-Nadel
+  const relatiWinkel = weltWinkel - blickWinkel;
+
+  // Kompass-Nadel zur Hütte
+  const nadelLaenge = radius * 0.75;
+  const nadelX = kompassX + Math.cos(relatiWinkel) * nadelLaenge;
+  const nadelY = kompassY + Math.sin(relatiWinkel) * nadelLaenge;
+
+  ctx.globalAlpha = 0.9;
+  ctx.strokeStyle = '#c8882a';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(kompassX, kompassY);
+  ctx.lineTo(nadelX, nadelY);
+  ctx.stroke();
+
+  // Kleiner Punkt in der Mitte
+  ctx.fillStyle = '#c8882a';
+  ctx.beginPath();
+  ctx.arc(kompassX, kompassY, 3, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Abstand in Metern (jede Einheit = ~10 Meter im Spiel)
+  const abstandMeter = Math.floor(huetteAbstand * 10);
+  ctx.globalAlpha = 0.8;
+  ctx.font = '10px monospace';
+  ctx.fillStyle = '#886633';
+  ctx.textAlign = 'center';
+  ctx.fillText(`${abstandMeter}m`, kompassX, kompassY + radius + 14);
+
+  // Beschriftung
+  ctx.font = '9px Georgia';
+  ctx.fillStyle = '#554422';
+  ctx.fillText('HÜTTE', kompassX, kompassY + radius + 24);
+
+  ctx.restore();
+}
+
+// ============================================================
+// === SPIELZUSTANDS-VERWALTUNG ===
+// ============================================================
+
+// Mögliche Zustände: 'MENUE', 'SPIELEN', 'SPIELENDE', 'SIEG'
+let spielZustand = 'MENUE';
+let todFarbeAlpha = 0; // Roter Bildschirm beim Tod
+
+function spielZustandSetzen(zustand) {
+  spielZustand = zustand;
+
+  document.getElementById('menue').style.display = 'none';
+  document.getElementById('spielende').style.display = 'none';
+  document.getElementById('sieg').style.display = 'none';
+
+  if (zustand === 'MENUE') {
+    document.getElementById('menue').style.display = 'flex';
+  } else if (zustand === 'SPIELENDE') {
+    todFarbeAlpha = 0;
+    // Kurze Verzögerung für dramatischen Effekt
+    setTimeout(() => {
+      document.getElementById('spielende').style.display = 'flex';
+    }, 1500);
+  } else if (zustand === 'SIEG') {
+    document.getElementById('sieg').style.display = 'flex';
+  }
+}
+
+function spielStarten() {
+  audioInitialisieren();
+
+  // Spieler zurücksetzen
+  spieler.x = 1.5;
+  spieler.y = 1.5;
+  spieler.richtungX = 1.0;
+  spieler.richtungY = 0.0;
+  spieler.ebeneX = 0.0;
+  spieler.ebeneY = 0.66;
+
+  // Monster zurücksetzen
+  monster.x = 22.5;
+  monster.y = 1.5;
+  monster.aktiv = false;
+  monster.vergangeneZeit = 0;
+  monster.abstand = 999;
+  monster.erwachtNachricht = false;
+  monster.erwachtNachrichtTimer = 0;
+
+  // Töne zurücksetzen
+  knackenTimer = 2.0;
+  knurrenTimer = 3.0;
+  letzterHerzschlag = audioContext ? audioContext.currentTime : 0;
+  todFarbeAlpha = 0;
+
+  spielZustandSetzen('SPIELEN');
+}
+
+function zurueckZumMenue() {
+  spielZustandSetzen('MENUE');
+}
+
+// Start-Knopf
+document.getElementById('startknopf').addEventListener('click', spielStarten);
+
+// ============================================================
+// === ABSCHNITT 14: SPIELSCHLEIFE (GAME LOOP) ===
+// ============================================================
+
+let letzteZeit = 0; // Zeitstempel des letzten Frames
+
+function spielSchleife(zeitstempel) {
+  // DeltaTime berechnen (begrenzt auf 50ms um Physik-Sprünge zu verhindern)
+  const deltaZeit = Math.min(0.05, (zeitstempel - letzteZeit) / 1000);
+  letzteZeit = zeitstempel;
+
+  // Nur rendern wenn Spiel läuft
+  if (spielZustand === 'SPIELEN') {
+
+    // === LOGIK-UPDATES ===
+    spielerBewegen(deltaZeit);
+    monsterAktualisieren(deltaZeit);
+    sieNiederlageUeberpruefen();
+
+    // === RENDERING ===
+    // 1. Welt zeichnen (Himmel, Boden, Wände via Raycasting)
+    szeneZeichnen();
+
+    // 2. Monster-Sprite über der Welt zeichnen
+    monsterZeichnen();
+
+    // 3. Taschenlampen-Overlay (verdunkelt die Ränder)
+    taschenlampeZeichnen(deltaZeit);
+
+    // 4. HUD (Kompass, Warnungen) zeichnen
+    hudZeichnen(deltaZeit);
+
+    // 5. Tod-Rotverfärbung beim Spielende
+    if (spielZustand === 'SPIELENDE') {
+      todFarbeAlpha = Math.min(0.8, todFarbeAlpha + deltaZeit * 2);
+      ctx.fillStyle = `rgba(120, 0, 0, ${todFarbeAlpha})`;
+      ctx.fillRect(0, 0, BREITE, HOEHE);
+    }
+
+  } else if (spielZustand === 'SPIELENDE') {
+    // Letztes Frame mit rotem Schleier
+    todFarbeAlpha = Math.min(0.8, todFarbeAlpha + deltaZeit * 1.5);
+    ctx.fillStyle = `rgba(80, 0, 0, ${todFarbeAlpha})`;
+    ctx.fillRect(0, 0, BREITE, HOEHE);
+  } else {
+    // Menü- oder Sieg-Zustand: schwarzen Hintergrund zeichnen
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, BREITE, HOEHE);
+  }
+
+  // Nächsten Frame anfordern
+  requestAnimationFrame(spielSchleife);
+}
+
+// Spielschleife starten
+requestAnimationFrame(spielSchleife);
+
+// Menü initial anzeigen
+spielZustandSetzen('MENUE');
+
+</script>
+</body>
+</html>
