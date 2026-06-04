@@ -1,0 +1,1164 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Der Schwarze Wald</title>
+  <style>
+    /* ===== GRUNDLEGENDES STYLING / BASIC STYLING ===== */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: #000;
+      color: #ccc;
+      font-family: 'Georgia', serif;
+      overflow: hidden;
+      user-select: none;
+    }
+
+    /* Der 3D-Canvas füllt den ganzen Bildschirm / The 3D canvas fills the whole screen */
+    #gameCanvas {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    /* ===== HUD - ANZEIGE IM SPIEL / IN-GAME HUD ===== */
+    #hud {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      display: none;
+    }
+
+    /* Fadenkreuz in der Mitte / Crosshair in the center */
+    #crosshair {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: rgba(255,255,255,0.4);
+      font-size: 20px;
+      line-height: 1;
+    }
+
+    /* Gefahranzeige oben links / Danger meter top-left */
+    #gefahrPanel {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      background: rgba(0,0,0,0.6);
+      border: 1px solid #550000;
+      border-radius: 6px;
+      padding: 10px 16px;
+      min-width: 180px;
+    }
+
+    #gefahrLabel {
+      font-size: 11px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: #888;
+      margin-bottom: 6px;
+    }
+
+    #gefahrBalken {
+      width: 100%;
+      height: 10px;
+      background: #1a0000;
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: 4px;
+    }
+
+    #gefahrFill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #440000, #ff0000);
+      border-radius: 4px;
+      transition: width 0.3s ease, background 0.3s ease;
+    }
+
+    #gefahrText {
+      font-size: 10px;
+      color: #aa4444;
+      text-align: right;
+    }
+
+    /* Zielanzeige unten / Goal indicator at bottom */
+    #zielPanel {
+      position: absolute;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.5);
+      border: 1px solid #334;
+      border-radius: 6px;
+      padding: 8px 18px;
+      font-size: 12px;
+      color: #667788;
+      letter-spacing: 1px;
+      text-align: center;
+    }
+
+    /* Atemhauch-Effekt / Breath effect overlay */
+    #atemHauch {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 30%;
+      background: linear-gradient(to top, rgba(200,220,255,0.03), transparent);
+      pointer-events: none;
+      animation: atemAnim 3s ease-in-out infinite;
+    }
+
+    @keyframes atemAnim {
+      0%, 100% { opacity: 0.3; }
+      50% { opacity: 0.8; }
+    }
+
+    /* ===== BILDSCHIRME / SCREENS ===== */
+    .screen {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 20px;
+      z-index: 100;
+    }
+
+    /* Startbildschirm / Start screen */
+    #startScreen {
+      background: radial-gradient(ellipse at center, #0a0a0a 0%, #000 70%);
+    }
+
+    #startScreen h1 {
+      font-size: clamp(2rem, 6vw, 4rem);
+      color: #ccddcc;
+      text-shadow: 0 0 30px rgba(100,150,100,0.4), 0 0 60px rgba(50,80,50,0.2);
+      letter-spacing: 4px;
+      margin-bottom: 10px;
+    }
+
+    #startScreen .untertitel {
+      font-size: clamp(0.8rem, 2vw, 1.1rem);
+      color: #445544;
+      letter-spacing: 6px;
+      margin-bottom: 50px;
+      text-transform: uppercase;
+    }
+
+    .startInfo {
+      max-width: 440px;
+      font-size: 0.9rem;
+      color: #556655;
+      line-height: 1.9;
+      margin-bottom: 50px;
+      border: 1px solid #1a2a1a;
+      padding: 20px 30px;
+      border-radius: 4px;
+      background: rgba(0,5,0,0.4);
+    }
+
+    .startInfo p {
+      margin-bottom: 8px;
+    }
+
+    .taste {
+      display: inline-block;
+      background: #1a2a1a;
+      border: 1px solid #334433;
+      border-radius: 3px;
+      padding: 1px 6px;
+      font-size: 0.85em;
+      color: #8aaa8a;
+    }
+
+    /* Startknopf / Start button */
+    .btn {
+      background: transparent;
+      border: 1px solid #446644;
+      color: #88aa88;
+      font-family: 'Georgia', serif;
+      font-size: 1rem;
+      letter-spacing: 3px;
+      padding: 14px 40px;
+      cursor: pointer;
+      text-transform: uppercase;
+      transition: all 0.3s;
+      margin: 8px;
+    }
+
+    .btn:hover {
+      background: rgba(50,80,50,0.2);
+      border-color: #88aa88;
+      color: #aaccaa;
+      box-shadow: 0 0 20px rgba(80,120,80,0.3);
+    }
+
+    /* Game-Over-Bildschirm / Game over screen */
+    #gameOverScreen {
+      background: radial-gradient(ellipse at center, #100000 0%, #000 70%);
+      display: none;
+    }
+
+    #gameOverScreen h1 {
+      font-size: clamp(2rem, 6vw, 3.5rem);
+      color: #cc2222;
+      text-shadow: 0 0 40px rgba(200,0,0,0.5);
+      letter-spacing: 4px;
+      margin-bottom: 20px;
+    }
+
+    #gameOverScreen .nachricht {
+      font-size: 1rem;
+      color: #664444;
+      margin-bottom: 40px;
+      line-height: 1.8;
+      max-width: 400px;
+    }
+
+    /* Siegesbildschirm / Victory screen */
+    #siegScreen {
+      background: radial-gradient(ellipse at center, #000a00 0%, #000 70%);
+      display: none;
+    }
+
+    #siegScreen h1 {
+      font-size: clamp(2rem, 6vw, 3.5rem);
+      color: #44aa44;
+      text-shadow: 0 0 40px rgba(0,180,0,0.4);
+      letter-spacing: 4px;
+      margin-bottom: 20px;
+    }
+
+    #siegScreen .nachricht {
+      font-size: 1rem;
+      color: #336633;
+      margin-bottom: 40px;
+      line-height: 1.8;
+      max-width: 400px;
+    }
+
+    /* Roter Blitz-Effekt wenn Monster nah ist / Red flash when monster is close */
+    #blitzEffekt {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: radial-gradient(ellipse at center, transparent 40%, rgba(150,0,0,0.0) 100%);
+      pointer-events: none;
+      z-index: 50;
+      opacity: 0;
+      transition: opacity 0.1s;
+    }
+
+    /* Pointer-Lock-Hinweis / Pointer lock hint */
+    #pointerHint {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0,0,0,0.8);
+      border: 1px solid #334433;
+      color: #667766;
+      padding: 16px 30px;
+      font-size: 0.85rem;
+      letter-spacing: 2px;
+      z-index: 80;
+      display: none;
+      text-align: center;
+    }
+
+    /* Flackernder Vignetten-Effekt / Flickering vignette effect */
+    #vignette {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.7) 100%);
+      pointer-events: none;
+      z-index: 10;
+    }
+  </style>
+</head>
+<body>
+
+<!-- 3D-Spielcanvas / 3D game canvas -->
+<canvas id="gameCanvas"></canvas>
+
+<!-- Vignetten-Überlagerung / Vignette overlay -->
+<div id="vignette"></div>
+
+<!-- Roter Blitz-Effekt / Red flash effect -->
+<div id="blitzEffekt"></div>
+
+<!-- ===== HUD ===== -->
+<div id="hud">
+  <div id="crosshair">·</div>
+
+  <div id="gefahrPanel">
+    <div id="gefahrLabel">⚠ Gefahr</div>
+    <div id="gefahrBalken">
+      <div id="gefahrFill"></div>
+    </div>
+    <div id="gefahrText">Unbekannt</div>
+  </div>
+
+  <div id="zielPanel">
+    🌲 Finde die Hütte im Wald · Entkomme dem Schatten
+  </div>
+
+  <div id="atemHauch"></div>
+</div>
+
+<!-- Pointer-Lock-Hinweis / Pointer lock hint -->
+<div id="pointerHint">Klicken zum Fortfahren</div>
+
+<!-- ===== STARTBILDSCHIRM / START SCREEN ===== -->
+<div class="screen" id="startScreen">
+  <h1>Der Schwarze Wald</h1>
+  <div class="untertitel">Eine Geschichte aus der Dunkelheit</div>
+
+  <div class="startInfo">
+    <p>Du bist allein im Wald. Die Nacht ist schwarz wie Tinte.<br>
+    Eine alte Hütte wartet irgendwo in der Finsternis.</p>
+    <p style="color:#334433;">— Aber du bist nicht allein —</p>
+    <p><span class="taste">W A S D</span> Bewegen &nbsp;·&nbsp;
+       <span class="taste">Maus</span> Umsehen</p>
+    <p>Finde die Hütte. Lauf nicht zu langsam.</p>
+  </div>
+
+  <button class="btn" id="startBtn">Ins Dunkel eintreten</button>
+</div>
+
+<!-- ===== GAME-OVER-BILDSCHIRM / GAME OVER SCREEN ===== -->
+<div class="screen" id="gameOverScreen">
+  <h1>Es hat dich gefunden.</h1>
+  <div class="nachricht">
+    Der Schatten des Waldes hat dich eingeholt.<br>
+    Die Dunkelheit nimmt dich in sich auf.<br><br>
+    <em style="color:#441111;">Du hättest schneller laufen sollen.</em>
+  </div>
+  <button class="btn" id="neustartBtn">Nochmals versuchen</button>
+</div>
+
+<!-- ===== SIEGESBILDSCHIRM / VICTORY SCREEN ===== -->
+<div class="screen" id="siegScreen">
+  <h1>Du hast überlebt.</h1>
+  <div class="nachricht">
+    Die alte Hütte bietet dir Schutz in dieser Nacht.<br>
+    Der Wald bleibt draußen — und sein Bewohner mit ihm.<br><br>
+    <em style="color:#336633;">Für jetzt.</em>
+  </div>
+  <button class="btn" id="siegNeustartBtn">Nochmals spielen</button>
+</div>
+
+<!-- Three.js von CDN / Three.js from CDN -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+<script>
+// =============================================================
+// DER SCHWARZE WALD - Hauptspielcode / Main game code
+// =============================================================
+
+// ===== SPIELZUSTAND / GAME STATE =====
+const Zustand = {
+  MENU: 'menu',
+  SPIEL: 'spiel',
+  GAMEOVER: 'gameover',
+  SIEG: 'sieg'
+};
+
+let spielZustand = Zustand.MENU;
+let pointerLocked = false;
+
+// ===== DOM-ELEMENTE / DOM ELEMENTS =====
+const canvas        = document.getElementById('gameCanvas');
+const hud           = document.getElementById('hud');
+const startScreen   = document.getElementById('startScreen');
+const gameOverScreen= document.getElementById('gameOverScreen');
+const siegScreen    = document.getElementById('siegScreen');
+const gefahrFill    = document.getElementById('gefahrFill');
+const gefahrText    = document.getElementById('gefahrText');
+const blitzEffekt   = document.getElementById('blitzEffekt');
+const pointerHint   = document.getElementById('pointerHint');
+
+// ===== THREE.JS GRUNDAUFBAU / THREE.JS BASIC SETUP =====
+
+// Renderer erstellen / Create renderer
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.setClearColor(0x000000);
+
+// Szene erstellen / Create scene
+const szene = new THREE.Scene();
+
+// Dichter Nebel für Atmosphäre / Dense fog for atmosphere
+// FogExp2 = exponentieller Nebel, realistischer als linearer Nebel
+// FogExp2 = exponential fog, more realistic than linear fog
+szene.fog = new THREE.FogExp2(0x020305, 0.04);
+szene.background = new THREE.Color(0x010103);
+
+// Kamera (Spielerperspektive) / Camera (player perspective)
+const kamera = new THREE.PerspectiveCamera(
+  75,                                        // Sichtfeld / Field of view
+  window.innerWidth / window.innerHeight,    // Seitenverhältnis / Aspect ratio
+  0.1,                                       // Nahclipping / Near clip
+  200                                        // Fernclipping / Far clip
+);
+kamera.position.set(0, 1.7, 0); // Augenhöhe / Eye height
+
+// ===== BELEUCHTUNG / LIGHTING =====
+
+// Sehr schwaches Umgebungslicht (fast vollständige Dunkelheit)
+// Very dim ambient light (almost complete darkness)
+const umgebungsLicht = new THREE.AmbientLight(0x050810, 1.0);
+szene.add(umgebungsLicht);
+
+// Schwaches Mondlicht von oben / Faint moonlight from above
+const mondLicht = new THREE.DirectionalLight(0x1a2035, 0.15);
+mondLicht.position.set(50, 100, 50);
+szene.add(mondLicht);
+
+// Taschenlampe (Spotlight an der Kamera) / Flashlight (spotlight on camera)
+// angle: Öffnungswinkel / opening angle
+// distance: wie weit leuchtet sie / how far it shines
+const taschenlampe = new THREE.SpotLight(0xeeeedd, 2.0);
+taschenlampe.angle = 0.3;
+taschenlampe.penumbra = 0.3;     // weiche Kanten / soft edges
+taschenlampe.distance = 30;
+taschenlampe.decay = 1.5;
+taschenlampe.castShadow = true;
+taschenlampe.shadow.mapSize.width = 512;
+taschenlampe.shadow.mapSize.height = 512;
+kamera.add(taschenlampe);       // Taschenlampe folgt der Kamera / Flashlight follows camera
+kamera.add(taschenlampe.target);// Ziel auch an Kamera / Target also on camera
+taschenlampe.target.position.set(0, 0, -1); // zeigt nach vorne / points forward
+szene.add(kamera);
+
+// ===== BODEN / GROUND =====
+// Großes dunkles Feld als Waldboden / Large dark plane as forest floor
+const bodenGeo = new THREE.PlaneGeometry(400, 400);
+const bodenMat = new THREE.MeshLambertMaterial({
+  color: 0x0d1208,   // sehr dunkles Grün-Braun / very dark green-brown
+});
+const boden = new THREE.Mesh(bodenGeo, bodenMat);
+boden.rotation.x = -Math.PI / 2;  // flach legen / lay flat
+boden.receiveShadow = true;
+szene.add(boden);
+
+// ===== BÄUME ERSTELLEN / CREATE TREES =====
+// Jeder Baum besteht aus: Stamm (Zylinder) + Krone (Kegel)
+// Each tree consists of: trunk (cylinder) + crown (cone)
+
+function baumErstellen(x, z) {
+  const gruppe = new THREE.Group();
+
+  // Stamm / Trunk
+  const stammGeo = new THREE.CylinderGeometry(0.15, 0.25, 4, 7);
+  const stammMat = new THREE.MeshLambertMaterial({ color: 0x1a0f05 });
+  const stamm = new THREE.Mesh(stammGeo, stammMat);
+  stamm.position.y = 2;
+  stamm.castShadow = true;
+  stamm.receiveShadow = true;
+  gruppe.add(stamm);
+
+  // Baumkrone Ebene 1 (unten) / Crown level 1 (bottom)
+  const krone1Geo = new THREE.ConeGeometry(2.2, 3.5, 7);
+  const kroneMat = new THREE.MeshLambertMaterial({ color: 0x040d04 });
+  const krone1 = new THREE.Mesh(krone1Geo, kroneMat);
+  krone1.position.y = 5.5;
+  krone1.castShadow = true;
+  gruppe.add(krone1);
+
+  // Baumkrone Ebene 2 (Mitte) / Crown level 2 (middle)
+  const krone2Geo = new THREE.ConeGeometry(1.6, 3.0, 7);
+  const krone2 = new THREE.Mesh(krone2Geo, kroneMat.clone());
+  krone2.position.y = 7.5;
+  krone2.castShadow = true;
+  gruppe.add(krone2);
+
+  // Baumkrone Ebene 3 (oben/Spitze) / Crown level 3 (top/tip)
+  const krone3Geo = new THREE.ConeGeometry(1.0, 2.5, 6);
+  const krone3 = new THREE.Mesh(krone3Geo, kroneMat.clone());
+  krone3.position.y = 9.2;
+  krone3.castShadow = true;
+  gruppe.add(krone3);
+
+  // Leichte zufällige Neigung für Natürlichkeit / Slight random tilt for naturalness
+  gruppe.rotation.y = Math.random() * Math.PI * 2;
+  gruppe.rotation.z = (Math.random() - 0.5) * 0.08;
+
+  gruppe.position.set(x, 0, z);
+  return gruppe;
+}
+
+// Bäume zufällig im Wald platzieren / Randomly place trees in the forest
+// Wir vermeiden Spawn beim Spieler (0,0) und bei der Hütte (0,-80)
+// We avoid spawning near the player (0,0) and the cabin (0,-80)
+const baumPositionen = [];
+const ANZAHL_BAEUME = 200;
+
+for (let i = 0; i < ANZAHL_BAEUME; i++) {
+  let x, z, versuche = 0;
+  do {
+    // Zufällige Position in einem großen Bereich / Random position in large area
+    x = (Math.random() - 0.5) * 160;
+    z = (Math.random() - 0.5) * 160;
+    versuche++;
+    // Maximale Versuche um Endlosschleife zu vermeiden / Max attempts to avoid infinite loop
+  } while (
+    versuche < 50 &&
+    (
+      // Zu nah am Spieler-Start / Too close to player start
+      (Math.abs(x) < 5 && Math.abs(z) < 5) ||
+      // Zu nah an der Hütte / Too close to the cabin
+      (Math.abs(x) < 8 && Math.abs(z + 80) < 8) ||
+      // Zu nah am Pfad zwischen Start und Hütte / Too close to path
+      (Math.abs(x) < 3 && z < 0 && z > -80)
+    )
+  );
+
+  const baum = baumErstellen(x, z);
+  szene.add(baum);
+  baumPositionen.push({ x, z });
+}
+
+// ===== HÜTTE ERSTELLEN / CREATE CABIN =====
+// Die Hütte ist das Ziel des Spielers / The cabin is the player's goal
+
+function hütteErstellen(x, z) {
+  const gruppe = new THREE.Group();
+
+  const holzMat = new THREE.MeshLambertMaterial({ color: 0x1f1008 });
+  const dachMat = new THREE.MeshLambertMaterial({ color: 0x0f0805 });
+  const türMat  = new THREE.MeshLambertMaterial({ color: 0x120a04 });
+
+  // Hauptgebäude (Würfel) / Main building (box)
+  const körperGeo = new THREE.BoxGeometry(8, 5, 7);
+  const körper = new THREE.Mesh(körperGeo, holzMat);
+  körper.position.y = 2.5;
+  körper.castShadow = true;
+  körper.receiveShadow = true;
+  gruppe.add(körper);
+
+  // Dach (Prisma aus Zylinder mit 4 Seiten) / Roof (prism from cylinder with 4 sides)
+  const dachGeo = new THREE.CylinderGeometry(0, 5.5, 3, 4);
+  const dach = new THREE.Mesh(dachGeo, dachMat);
+  dach.position.y = 6.5;
+  dach.rotation.y = Math.PI / 4;
+  dach.castShadow = true;
+  gruppe.add(dach);
+
+  // Tür / Door
+  const türGeo = new THREE.BoxGeometry(1.4, 2.8, 0.2);
+  const tür = new THREE.Mesh(türGeo, türMat);
+  tür.position.set(0, 1.4, 3.6);
+  gruppe.add(tür);
+
+  // Schwaches Licht an der Hütte (Kerze im Fenster) / Faint light at cabin (candle in window)
+  const hüttenLicht = new THREE.PointLight(0x553311, 1.5, 15);
+  hüttenLicht.position.set(0, 3, 0);
+  gruppe.add(hüttenLicht);
+
+  gruppe.position.set(x, 0, z);
+  return gruppe;
+}
+
+const hütte = hütteErstellen(0, -80);
+szene.add(hütte);
+
+// ===== SCHATTENMONSTER / SHADOW MONSTER =====
+// Das Monster ist eine dunkle, menschenähnliche Silhouette
+// The monster is a dark, humanoid silhouette
+
+function monsterErstellen() {
+  const gruppe = new THREE.Group();
+
+  // Sehr dunkles, fast unsichtbares Material / Very dark, almost invisible material
+  const körperMat = new THREE.MeshLambertMaterial({
+    color: 0x050505,
+    emissive: 0x0a0005,  // schwaches lila Glühen / faint purple glow
+  });
+
+  // Körper / Body torso
+  const rumpfGeo = new THREE.BoxGeometry(0.7, 1.2, 0.35);
+  const rumpf = new THREE.Mesh(rumpfGeo, körperMat);
+  rumpf.position.y = 1.5;
+  gruppe.add(rumpf);
+
+  // Kopf / Head
+  const kopfGeo = new THREE.BoxGeometry(0.5, 0.5, 0.45);
+  const kopf = new THREE.Mesh(kopfGeo, körperMat);
+  kopf.position.y = 2.45;
+  gruppe.add(kopf);
+
+  // Linker Arm / Left arm
+  const armGeo = new THREE.BoxGeometry(0.22, 1.0, 0.22);
+  const linkerArm = new THREE.Mesh(armGeo, körperMat);
+  linkerArm.position.set(-0.5, 1.5, 0);
+  linkerArm.rotation.z = 0.2;
+  gruppe.add(linkerArm);
+
+  // Rechter Arm / Right arm
+  const rechterArm = new THREE.Mesh(armGeo, körperMat.clone());
+  rechterArm.position.set(0.5, 1.5, 0);
+  rechterArm.rotation.z = -0.2;
+  gruppe.add(rechterArm);
+
+  // Linkes Bein / Left leg
+  const beinGeo = new THREE.BoxGeometry(0.25, 1.1, 0.25);
+  const linksBein = new THREE.Mesh(beinGeo, körperMat);
+  linksBein.position.set(-0.2, 0.55, 0);
+  gruppe.add(linksBein);
+
+  // Rechtes Bein / Right leg
+  const rechtsBein = new THREE.Mesh(beinGeo, körperMat.clone());
+  rechtsBein.position.set(0.2, 0.55, 0);
+  gruppe.add(rechtsBein);
+
+  // Augen-Glühen (rote Punkte) / Eye glow (red dots)
+  const augenMat = new THREE.MeshBasicMaterial({ color: 0x660000 });
+  const augeGeo = new THREE.SphereGeometry(0.05, 6, 6);
+
+  const linksAuge = new THREE.Mesh(augeGeo, augenMat);
+  linksAuge.position.set(-0.12, 2.45, 0.23);
+  gruppe.add(linksAuge);
+
+  const rechtsAuge = new THREE.Mesh(augeGeo, augenMat.clone());
+  rechtsAuge.position.set(0.12, 2.45, 0.23);
+  gruppe.add(rechtsAuge);
+
+  // Monster-Startposition hinter dem Spieler / Monster start position behind player
+  gruppe.position.set(0, 0, 80);
+
+  return gruppe;
+}
+
+const monster = monsterErstellen();
+szene.add(monster);
+
+// ===== SPIELERBEWEGUNG / PLAYER MOVEMENT =====
+// Tastaturzustand speichern / Save keyboard state
+const tasten = {
+  w: false, a: false, s: false, d: false
+};
+
+// Mausbewegung für Kameradrehung / Mouse movement for camera rotation
+let mausX = 0;  // Yaw (links/rechts) / Yaw (left/right)
+let mausY = 0;  // Pitch (oben/unten) / Pitch (up/down)
+
+const BEWEGT_GESCHW = 0.07;  // Bewegungsgeschwindigkeit / Movement speed
+const MAUS_EMPF = 0.002;      // Mausempfindlichkeit / Mouse sensitivity
+
+// Tastendruck registrieren / Register key press
+document.addEventListener('keydown', (e) => {
+  if (spielZustand !== Zustand.SPIEL) return;
+  switch(e.code) {
+    case 'KeyW': case 'ArrowUp':    tasten.w = true; break;
+    case 'KeyS': case 'ArrowDown':  tasten.s = true; break;
+    case 'KeyA': case 'ArrowLeft':  tasten.a = true; break;
+    case 'KeyD': case 'ArrowRight': tasten.d = true; break;
+  }
+});
+
+// Taste loslassen / Release key
+document.addEventListener('keyup', (e) => {
+  switch(e.code) {
+    case 'KeyW': case 'ArrowUp':    tasten.w = false; break;
+    case 'KeyS': case 'ArrowDown':  tasten.s = false; break;
+    case 'KeyA': case 'ArrowLeft':  tasten.a = false; break;
+    case 'KeyD': case 'ArrowRight': tasten.d = false; break;
+  }
+});
+
+// Mausbewegung verarbeiten (nur wenn Pointer gesperrt)
+// Process mouse movement (only when pointer is locked)
+document.addEventListener('mousemove', (e) => {
+  if (!pointerLocked || spielZustand !== Zustand.SPIEL) return;
+
+  mausX -= e.movementX * MAUS_EMPF;
+  mausY -= e.movementY * MAUS_EMPF;
+
+  // Pitch begrenzen (nicht über 90° schauen) / Limit pitch (can't look more than 90°)
+  mausY = Math.max(-Math.PI / 2.2, Math.min(Math.PI / 2.2, mausY));
+});
+
+// ===== POINTER LOCK API =====
+// Ermöglicht unbegrenzte Mausbewegung / Enables unlimited mouse movement
+
+document.addEventListener('pointerlockchange', () => {
+  pointerLocked = document.pointerLockElement === canvas;
+  if (!pointerLocked && spielZustand === Zustand.SPIEL) {
+    pointerHint.style.display = 'block';
+  } else {
+    pointerHint.style.display = 'none';
+  }
+});
+
+canvas.addEventListener('click', () => {
+  if (spielZustand === Zustand.SPIEL && !pointerLocked) {
+    canvas.requestPointerLock();
+  }
+});
+
+// ===== WEB AUDIO API - KLANGEFFEKTE / SOUND EFFECTS =====
+// Wir erzeugen alle Geräusche synthetisch (kein Laden von Audiodateien nötig)
+// We generate all sounds synthetically (no loading of audio files needed)
+
+let audioKontext = null;
+let herzschlagInterval = null;
+let windKnoten = null;
+let windVerstärker = null;
+let herzschlagTempo = 1.2;  // Sekunden zwischen Schlägen / Seconds between beats
+
+// Audio-System initialisieren / Initialize audio system
+function audioInitialisieren() {
+  if (audioKontext) return;
+  audioKontext = new (window.AudioContext || window.webkitAudioContext)();
+  windErzeugen();
+  herzschlagStarten();
+}
+
+// Wind-Rauschen erzeugen / Generate wind noise
+// Weißes Rauschen + Tiefpassfilter = Windgeräusch
+// White noise + low-pass filter = wind sound
+function windErzeugen() {
+  if (!audioKontext) return;
+
+  // Puffer mit zufälligem Rauschen füllen / Fill buffer with random noise
+  const pufferGröße = audioKontext.sampleRate * 3;
+  const puffer = audioKontext.createBuffer(1, pufferGröße, audioKontext.sampleRate);
+  const daten = puffer.getChannelData(0);
+  for (let i = 0; i < pufferGröße; i++) {
+    daten[i] = (Math.random() * 2 - 1);
+  }
+
+  // Rausch-Quellenknoten / Noise source node
+  windKnoten = audioKontext.createBufferSource();
+  windKnoten.buffer = puffer;
+  windKnoten.loop = true;
+
+  // Tiefpassfilter für Windcharakter / Low-pass filter for wind character
+  const tiefpass = audioKontext.createBiquadFilter();
+  tiefpass.type = 'lowpass';
+  tiefpass.frequency.value = 400;
+  tiefpass.Q.value = 0.5;
+
+  // Hochpassfilter für weniger Dröhnen / High-pass filter for less droning
+  const hochpass = audioKontext.createBiquadFilter();
+  hochpass.type = 'highpass';
+  hochpass.frequency.value = 80;
+
+  // Lautstärke-Knoten / Volume node
+  windVerstärker = audioKontext.createGain();
+  windVerstärker.gain.value = 0.06;
+
+  // Kette zusammenstecken / Chain together
+  windKnoten.connect(tiefpass);
+  tiefpass.connect(hochpass);
+  hochpass.connect(windVerstärker);
+  windVerstärker.connect(audioKontext.destination);
+  windKnoten.start();
+}
+
+// Herzschlag-Sound erzeugen / Generate heartbeat sound
+// Zwei kurze tiefe Schläge (lub-dub) / Two short deep beats (lub-dub)
+function herzschlagSpielen() {
+  if (!audioKontext) return;
+
+  function schlagTon(zeitVersatz, lautstärke) {
+    const osc = audioKontext.createOscillator();
+    const gain = audioKontext.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(60, audioKontext.currentTime + zeitVersatz);
+    osc.frequency.exponentialRampToValueAtTime(30, audioKontext.currentTime + zeitVersatz + 0.15);
+
+    gain.gain.setValueAtTime(0, audioKontext.currentTime + zeitVersatz);
+    gain.gain.linearRampToValueAtTime(lautstärke, audioKontext.currentTime + zeitVersatz + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioKontext.currentTime + zeitVersatz + 0.18);
+
+    osc.connect(gain);
+    gain.connect(audioKontext.destination);
+    osc.start(audioKontext.currentTime + zeitVersatz);
+    osc.stop(audioKontext.currentTime + zeitVersatz + 0.2);
+  }
+
+  // Erster Schlag (lub) / First beat (lub)
+  schlagTon(0, 0.4);
+  // Zweiter Schlag (dub) / Second beat (dub)
+  schlagTon(0.18, 0.25);
+}
+
+// Herzschlag-Intervall starten / Start heartbeat interval
+function herzschlagStarten() {
+  if (herzschlagInterval) clearInterval(herzschlagInterval);
+  herzschlagInterval = setInterval(() => {
+    if (spielZustand === Zustand.SPIEL) {
+      herzschlagSpielen();
+    }
+  }, herzschlagTempo * 1000);
+}
+
+// Herzschlag an Monster-Nähe anpassen / Adjust heartbeat to monster proximity
+function herzschlagAnpassen(distanz) {
+  // Innerhalb von 30 Einheiten wird der Herzschlag schneller
+  // Within 30 units the heartbeat gets faster
+  const maxDistanz = 30;
+  const minTempo = 0.35;   // sehr schnell / very fast
+  const maxTempo = 1.5;    // normal / normal
+
+  if (distanz < maxDistanz) {
+    const t = 1 - (distanz / maxDistanz);  // 0 = weit, 1 = nah / 0 = far, 1 = close
+    const neuesTempo = maxTempo - (maxTempo - minTempo) * t;
+
+    if (Math.abs(neuesTempo - herzschlagTempo) > 0.05) {
+      herzschlagTempo = neuesTempo;
+      herzschlagStarten();
+    }
+  } else {
+    if (herzschlagTempo !== maxTempo) {
+      herzschlagTempo = maxTempo;
+      herzschlagStarten();
+    }
+  }
+}
+
+// Flüsterndes Geräusch wenn Monster sehr nah / Whisper sound when monster very close
+function flüsternSpielen() {
+  if (!audioKontext) return;
+  const osc = audioKontext.createOscillator();
+  const gain = audioKontext.createGain();
+  const verzerrer = audioKontext.createWaveShaper();
+
+  // Verzerrungskurve für gruselige Textur / Distortion curve for creepy texture
+  const kurve = new Float32Array(256);
+  for (let i = 0; i < 256; i++) {
+    const x = (i * 2) / 256 - 1;
+    kurve[i] = (Math.PI + 200) * x / (Math.PI + 200 * Math.abs(x));
+  }
+  verzerrer.curve = kurve;
+
+  osc.type = 'sawtooth';
+  osc.frequency.setValueAtTime(120 + Math.random() * 40, audioKontext.currentTime);
+  osc.frequency.linearRampToValueAtTime(80, audioKontext.currentTime + 0.5);
+
+  gain.gain.setValueAtTime(0, audioKontext.currentTime);
+  gain.gain.linearRampToValueAtTime(0.06, audioKontext.currentTime + 0.1);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioKontext.currentTime + 0.6);
+
+  osc.connect(verzerrer);
+  verzerrer.connect(gain);
+  gain.connect(audioKontext.destination);
+  osc.start();
+  osc.stop(audioKontext.currentTime + 0.7);
+}
+
+let letzteFlüsterZeit = 0;
+
+// ===== SPIELER-KAMERA BEWEGEN / MOVE PLAYER CAMERA =====
+// Kamera-Richtungsvektoren berechnen und Spieler bewegen
+// Calculate camera direction vectors and move player
+
+const bewegungsVektor = new THREE.Vector3();
+const kameraRichtung = new THREE.Vector3();
+const rechtsVektor = new THREE.Vector3();
+
+function spielerBewegen() {
+  if (spielZustand !== Zustand.SPIEL) return;
+
+  // Blickrichtung aus Euler-Winkeln berechnen
+  // Calculate look direction from Euler angles
+  kameraRichtung.set(
+    Math.sin(mausX),
+    0,
+    Math.cos(mausX)
+  ).normalize();
+
+  // Rechtsvektor senkrecht zur Blickrichtung / Right vector perpendicular to look
+  rechtsVektor.set(
+    Math.cos(mausX),
+    0,
+    -Math.sin(mausX)
+  ).normalize();
+
+  bewegungsVektor.set(0, 0, 0);
+
+  if (tasten.w) bewegungsVektor.addScaledVector(kameraRichtung, -BEWEGT_GESCHW);
+  if (tasten.s) bewegungsVektor.addScaledVector(kameraRichtung,  BEWEGT_GESCHW);
+  if (tasten.a) bewegungsVektor.addScaledVector(rechtsVektor,   -BEWEGT_GESCHW);
+  if (tasten.d) bewegungsVektor.addScaledVector(rechtsVektor,    BEWEGT_GESCHW);
+
+  // Neue Position berechnen / Calculate new position
+  const neueX = kamera.position.x + bewegungsVektor.x;
+  const neueZ = kamera.position.z + bewegungsVektor.z;
+
+  // Welt-Grenze / World boundary
+  const GRENZE = 95;
+  kamera.position.x = Math.max(-GRENZE, Math.min(GRENZE, neueX));
+  kamera.position.z = Math.max(-GRENZE, Math.min(GRENZE, neueZ));
+  kamera.position.y = 1.7;  // Augenhöhe konstant halten / Keep eye height constant
+
+  // Kamera-Rotation anwenden (Yaw + Pitch)
+  // Apply camera rotation (yaw + pitch)
+  kamera.rotation.order = 'YXZ';
+  kamera.rotation.y = mausX;
+  kamera.rotation.x = mausY;
+}
+
+// ===== MONSTER-BEWEGUNG / MONSTER MOVEMENT =====
+// Das Monster bewegt sich langsam auf den Spieler zu
+// The monster slowly moves toward the player
+
+const MONSTER_GESCHW = 0.02;  // Einheiten pro Frame / Units per frame
+
+// Schrittanimations-Variablen / Step animation variables
+let schrittZeit = 0;
+
+function monsterBewegen() {
+  if (spielZustand !== Zustand.SPIEL) return;
+
+  // Richtung zum Spieler berechnen / Calculate direction to player
+  const richtung = new THREE.Vector3(
+    kamera.position.x - monster.position.x,
+    0,
+    kamera.position.z - monster.position.z
+  );
+
+  const distanz = richtung.length();
+
+  // Monster schaut zum Spieler / Monster faces player
+  if (distanz > 0.1) {
+    richtung.normalize();
+    monster.position.x += richtung.x * MONSTER_GESCHW;
+    monster.position.z += richtung.z * MONSTER_GESCHW;
+
+    // Monster dreht sich zum Spieler / Monster rotates toward player
+    monster.rotation.y = Math.atan2(richtung.x, richtung.z);
+  }
+
+  // Kriech-Animation (leichte Auf-Ab-Bewegung) / Creep animation (slight up-down movement)
+  schrittZeit += 0.05;
+  monster.position.y = Math.sin(schrittZeit * 2) * 0.08;
+
+  // Arme leicht bewegen für gruselige Wirkung / Slightly move arms for creepy effect
+  const arme = [monster.children[2], monster.children[3]];
+  if (arme[0]) arme[0].rotation.x = Math.sin(schrittZeit) * 0.15;
+  if (arme[1]) arme[1].rotation.x = Math.sin(schrittZeit + Math.PI) * 0.15;
+
+  return distanz;
+}
+
+// ===== HUD AKTUALISIEREN / UPDATE HUD =====
+// Gefahranzeige basierend auf Monster-Distanz
+// Danger meter based on monster distance
+
+function hudAktualisieren(monsterDistanz) {
+  const maxDistanz = 80;  // Ab hier beginnt die Anzeige / From here the display starts
+  const prozent = Math.max(0, Math.min(100, (1 - monsterDistanz / maxDistanz) * 100));
+
+  gefahrFill.style.width = prozent + '%';
+
+  // Farbe und Text je nach Nähe / Color and text based on proximity
+  if (prozent < 30) {
+    gefahrFill.style.background = 'linear-gradient(90deg, #1a0000, #440000)';
+    gefahrText.textContent = 'Sicher';
+    gefahrText.style.color = '#334433';
+    blitzEffekt.style.opacity = '0';
+  } else if (prozent < 60) {
+    gefahrFill.style.background = 'linear-gradient(90deg, #440000, #880000)';
+    gefahrText.textContent = 'Nähert sich...';
+    gefahrText.style.color = '#885544';
+    blitzEffekt.style.opacity = '0';
+  } else if (prozent < 80) {
+    gefahrFill.style.background = 'linear-gradient(90deg, #660000, #cc2200)';
+    gefahrText.textContent = 'Gefährlich nah!';
+    gefahrText.style.color = '#cc4422';
+    blitzEffekt.style.opacity = String(0.1 + Math.random() * 0.05);
+  } else {
+    gefahrFill.style.background = 'linear-gradient(90deg, #880000, #ff0000)';
+    gefahrText.textContent = '⚠ LAUF! ⚠';
+    gefahrText.style.color = '#ff2222';
+    // Rotes Flimmern am Rand / Red flickering at edge
+    blitzEffekt.style.opacity = String(0.15 + Math.random() * 0.1);
+    blitzEffekt.style.background = `radial-gradient(ellipse at center, transparent 30%, rgba(150,0,0,${0.3 + Math.random() * 0.2}) 100%)`;
+  }
+}
+
+// ===== SPIELZUSTANDS-PRÜFUNGEN / GAME STATE CHECKS =====
+
+function spielZustandPrüfen(monsterDistanz) {
+  // Wurde der Spieler vom Monster erwischt? / Did the monster catch the player?
+  if (monsterDistanz < 3) {
+    spielBeenden(false);
+    return;
+  }
+
+  // Hat der Spieler die Hütte erreicht? / Did the player reach the cabin?
+  const hüttenDistanz = new THREE.Vector3(
+    kamera.position.x - hütte.position.x,
+    0,
+    kamera.position.z - hütte.position.z
+  ).length();
+
+  if (hüttenDistanz < 5) {
+    spielBeenden(true);
+    return;
+  }
+
+  // Flüstern wenn Monster sehr nah / Whisper when monster very close
+  const jetzt = Date.now();
+  if (monsterDistanz < 15 && jetzt - letzteFlüsterZeit > 3000) {
+    flüsternSpielen();
+    letzteFlüsterZeit = jetzt;
+  }
+}
+
+// ===== SPIEL STARTEN / START GAME =====
+function spielStarten() {
+  // Positionen zurücksetzen / Reset positions
+  kamera.position.set(0, 1.7, 0);
+  mausX = 0;
+  mausY = 0;
+  monster.position.set(0, 0, 80);
+  schrittZeit = 0;
+  herzschlagTempo = 1.5;
+
+  spielZustand = Zustand.SPIEL;
+
+  // Bildschirme umschalten / Switch screens
+  startScreen.style.display = 'none';
+  gameOverScreen.style.display = 'none';
+  siegScreen.style.display = 'none';
+  hud.style.display = 'block';
+  pointerHint.style.display = 'none';
+
+  // Audio starten / Start audio
+  audioInitialisieren();
+
+  // Pointer lock anfordern / Request pointer lock
+  canvas.requestPointerLock();
+}
+
+// ===== SPIEL BEENDEN / END GAME =====
+function spielBeenden(gewonnen) {
+  spielZustand = gewonnen ? Zustand.SIEG : Zustand.GAMEOVER;
+  pointerLocked = false;
+
+  // Pointer freigeben / Release pointer
+  if (document.exitPointerLock) {
+    document.exitPointerLock();
+  }
+
+  hud.style.display = 'none';
+  blitzEffekt.style.opacity = '0';
+
+  if (gewonnen) {
+    siegScreen.style.display = 'flex';
+  } else {
+    // Kurzer roter Blitz beim Game Over / Short red flash on game over
+    blitzEffekt.style.background = 'rgba(150, 0, 0, 0.6)';
+    blitzEffekt.style.opacity = '1';
+    setTimeout(() => {
+      blitzEffekt.style.opacity = '0';
+      blitzEffekt.style.background = '';
+    }, 500);
+    gameOverScreen.style.display = 'flex';
+  }
+}
+
+// ===== FENSTERGRÖSSEN-ANPASSUNG / WINDOW RESIZE =====
+window.addEventListener('resize', () => {
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  kamera.aspect = window.innerWidth / window.innerHeight;
+  kamera.updateProjectionMatrix();
+});
+
+// ===== BUTTON-EREIGNISSE / BUTTON EVENTS =====
+document.getElementById('startBtn').addEventListener('click', spielStarten);
+document.getElementById('neustartBtn').addEventListener('click', spielStarten);
+document.getElementById('siegNeustartBtn').addEventListener('click', spielStarten);
+
+// ===== TASCHENLAMPEN-FLACKERN / FLASHLIGHT FLICKER =====
+// Leichtes Flackern für Atmosphäre / Slight flickering for atmosphere
+let flickerZeit = 0;
+
+function taschenlampeFlackern() {
+  flickerZeit += 0.016;
+  // Langsames Sinus-Flackern + gelegentliche Störungen
+  // Slow sine flickering + occasional glitches
+  const flicker = 1.0 + Math.sin(flickerZeit * 3.7) * 0.04
+                      + Math.sin(flickerZeit * 11.3) * 0.02
+                      + (Math.random() < 0.005 ? Math.random() * 0.3 - 0.15 : 0);
+  taschenlampe.intensity = 2.0 * flicker;
+}
+
+// ===== HAUPT-SPIELSCHLEIFE / MAIN GAME LOOP =====
+// Diese Funktion wird ~60x pro Sekunde aufgerufen
+// This function is called ~60 times per second
+
+function spielSchleife() {
+  requestAnimationFrame(spielSchleife);
+
+  if (spielZustand === Zustand.SPIEL) {
+    // Spieler bewegen / Move player
+    spielerBewegen();
+
+    // Monster bewegen und Distanz erhalten / Move monster and get distance
+    const monsterDistanz = monsterBewegen();
+
+    // HUD aktualisieren / Update HUD
+    hudAktualisieren(monsterDistanz);
+
+    // Herzschlag anpassen / Adjust heartbeat
+    herzschlagAnpassen(monsterDistanz);
+
+    // Spielzustand prüfen / Check game state
+    spielZustandPrüfen(monsterDistanz);
+
+    // Taschenlampe flackern / Flicker flashlight
+    taschenlampeFlackern();
+  }
+
+  // Szene rendern / Render scene
+  renderer.render(szene, kamera);
+}
+
+// ===== SPIEL STARTEN / START GAME =====
+// Spielschleife beginnen / Begin game loop
+spielSchleife();
+
+// Kurze Einführungsanimation - Kamera-Pitch leicht bewegen
+// Brief intro animation - slightly move camera pitch
+// (nur im Menü sichtbar / only visible in menu)
+let menuZeit = 0;
+function menuAnimation() {
+  if (spielZustand === Zustand.MENU) {
+    menuZeit += 0.005;
+    kamera.position.x = Math.sin(menuZeit * 0.7) * 2;
+    kamera.position.z = Math.cos(menuZeit * 0.5) * 2;
+    kamera.rotation.order = 'YXZ';
+    kamera.rotation.y = menuZeit * 0.3;
+    kamera.rotation.x = Math.sin(menuZeit) * 0.05;
+    requestAnimationFrame(menuAnimation);
+  }
+}
+menuAnimation();
+
+</script>
+</body>
+</html>
